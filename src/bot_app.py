@@ -109,7 +109,7 @@ def handle_text(message):
                                 
 
 def update_list_of_users(users_tmp):
-    with open('src/users_config.py', 'w') as f:
+    with open('users_config.py', 'w') as f:
         f.write(f'users = {users_tmp}')
     users = users_config.users
     return users
