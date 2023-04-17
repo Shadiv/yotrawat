@@ -1,0 +1,1 @@
+users = [{'user_id': 370881161, 'gender': 'male', 'schedule': [1, 3]}]
