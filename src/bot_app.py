@@ -7,6 +7,7 @@ import datetime
 import users_config
 from default_exercises import daily_default, full_body_default
 import logging
+import threading
 
 logging.basicConfig(filename='bot.log', level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -109,23 +110,21 @@ def handle_text(message):
                                 
 
 def update_list_of_users(users_tmp):
-    with open('src/users_config.py', 'w') as f:
+    with open('users_config.py', 'w') as f:
         f.write(f'users = {users_tmp}')
     users = users_config.users
     return users
 
-def get_gym_daily(users):
+def get_daily(users):
     daily = []
-    gym = []
     for user in users: 
-        if datetime.datetime.now().weekday() in user['schedule']:
-            gym.append(user['user_id'])
-        else:
+        if datetime.datetime.now().weekday() not in user['schedule']:
             daily.append((user['user_id'], user['gender']))
-    return daily, gym
+    return daily
 
 def send_morning_notification(users):
-    daily, gym = get_gym_daily(users=users)
+    daily = get_daily(users=users)
+    gym = [i['user_id'] for i in users if datetime.datetime.now().weekday() not in i['schedule']]
     for usr in daily:
         msg = 'Доброе утро! В зал ты сегодня, конечно, не идёшь, но не забудь немного подвигаться. Я прослежу!😉'
         bot.send_message(chat_id=usr[0], text=msg)
@@ -134,19 +133,25 @@ def send_morning_notification(users):
         bot.send_message(chat_id=uid, text=msg)
     
 def send_daily(users):
-    daily, gym = get_gym_daily(users=users)
+    daily = get_daily(users=users)
     msg_f = 'Маловато двигаешься! Ну-ка присядь-ка 20 раз!'
     msg_m = "Ты там к стулу не прирос? А ну-ка упал отжался 25 раз!"
     msg_p = 'Неплохой день, но будет грустно если ты не сделаешь минуту планки пока он ещё не закончился! Вперёд!'
-    if time.strftime("%H:%M", time.localtime()) == '11:00' or  time.strftime("%H:%M", time.localtime()) == '17:00':
+    if time.strftime("%H", time.localtime()) != '20':
         for usr in daily:
             if usr[1] == 'female':
                 bot.send_message(chat_id=usr[0], text=msg_f)
             elif usr[1] == 'male':
                 bot.send_message(chat_id=usr[0], text=msg_m)
-    if time.strftime("%H:%M", time.localtime()) == '20:00':
+    elif time.strftime("%H", time.localtime()) == '20':
         for usr in daily:
             bot.send_message(chat_id=usr[0], text=msg_p)
+    else:
+        pass
+
+def polling_loop():
+    bot.polling(non_stop=True)
+
 
 users = update_list_of_users(users_tmp)
 
@@ -156,11 +161,12 @@ schedule.every().day.at('17:00').do(send_daily, users)
 schedule.every().day.at('20:00').do(send_daily, users)
 schedule.every().hour.do(update_list_of_users, users_tmp)
 
-bot.polling(none_stop=True) 
+polling_thread = threading.Thread(target=polling_loop)
 
 while True:
     schedule.run_pending()
-    time.sleep(0.5)
+    time.sleep(1)
+
     # if time.strftime("%H:%M", time.localtime()) == '00:01':
     #     users = update_list_of_users(users_tmp)
     
