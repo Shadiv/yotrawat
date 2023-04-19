@@ -149,23 +149,22 @@ def send_daily(users):
     else:
         pass
 
-def polling_loop():
-    bot.polling(non_stop=True)
 
 
 users = update_list_of_users(users_tmp)
+def run_schedule(users, users_tmp):
+    schedule.every().day.at('05:30').do(send_morning_notification, users)
+    schedule.every().day.at('11:00').do(send_daily, users)
+    schedule.every().day.at('17:00').do(send_daily, users)
+    schedule.every().day.at('20:15').do(send_daily, users)
+    schedule.every().hour.do(update_list_of_users, users_tmp)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
-schedule.every().day.at('05:30').do(send_morning_notification, users)
-schedule.every().day.at('11:00').do(send_daily, users)
-schedule.every().day.at('17:00').do(send_daily, users)
-schedule.every().day.at('20:00').do(send_daily, users)
-schedule.every().hour.do(update_list_of_users, users_tmp)
+schedule_thread = threading.Thread(target=run_schedule)
+bot.polling(non_stop=True)
 
-polling_thread = threading.Thread(target=polling_loop)
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)
 
     # if time.strftime("%H:%M", time.localtime()) == '00:01':
     #     users = update_list_of_users(users_tmp)
