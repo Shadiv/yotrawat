@@ -1,13 +1,11 @@
 import telebot
 from telebot import types
 import config
-import schedule
 import time
 import datetime
 import users_config
 from default_exercises import daily_default, full_body_default
 import logging
-import threading
 
 logging.basicConfig(filename='bot.log', level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -149,25 +147,7 @@ def send_daily(users):
     else:
         pass
 
-
-
-users = update_list_of_users(users_tmp)
-def run_schedule(users, users_tmp):
-    schedule.every().day.at('05:30').do(send_morning_notification, users)
-    schedule.every().day.at('11:00').do(send_daily, users)
-    schedule.every().day.at('17:00').do(send_daily, users)
-    schedule.every().day.at('20:15').do(send_daily, users)
-    schedule.every().hour.do(update_list_of_users, users_tmp)
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
-schedule_thread = threading.Thread(target=run_schedule)
 bot.polling(non_stop=True)
 
-
-    # if time.strftime("%H:%M", time.localtime()) == '00:01':
-    #     users = update_list_of_users(users_tmp)
-    
 
     
