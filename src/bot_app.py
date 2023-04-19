@@ -2,6 +2,7 @@ import telebot
 from telebot import types
 import config
 import time
+import schedule
 import datetime
 import users_config
 from default_exercises import daily_default, full_body_default
@@ -105,8 +106,7 @@ def handle_text(message):
                             msg = "\n".join(exercises)
                             bot.send_message(message.chat.id, msg)
 
-                                
-
+                            
 def update_list_of_users(users_tmp):
     with open('users_config.py', 'w') as f:
         f.write(f'users = {users_tmp}')
@@ -147,7 +147,18 @@ def send_daily(users):
     else:
         pass
 
-bot.polling(non_stop=True)
+users = update_list_of_users(users_tmp) 
 
+schedule.every().day.at('05:30').do(send_morning_notification, users)
+schedule.every().day.at('11:00').do(send_daily, users)
+schedule.every().day.at('17:00').do(send_daily, users)
+schedule.every().day.at('20:00').do(send_daily, users)
+schedule.every().hour.do(update_list_of_users, users_tmp)
 
-    
+while True:
+    try:
+        bot.polling(interval=0.5)
+    except Exception:
+        continue
+    schedule.run_pending()
+    time.sleep(0.5)
