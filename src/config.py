@@ -1,4 +1,4 @@
-TOKEN='5921543188:AAEmcVry5criR-fma0I376GbiAbn3x-WXKk'
+TOKEN='token'
 COMMANDS = ['start']
 CHAT_WORD_COMMANDS = ['Программа']
 days = {"понедельник": 0,
