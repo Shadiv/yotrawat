@@ -1,1 +1,1 @@
-users = [{'user_id': 370881161, 'gender': 'male', 'schedule': [1, 3]}]
+users = [{'user_id': '', 'gender': '', 'schedule': []}]
