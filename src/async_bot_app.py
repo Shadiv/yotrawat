@@ -1,15 +1,24 @@
+# Import telebot and schedule
 import telebot
 from telebot.async_telebot import AsyncTeleBot
 from telebot import types
-import config
+
+#Async states - replacing next step handlers
+from telebot.asyncio_storage import StateMemoryStorage
+from telebot.asyncio_handler_backends import State, StatesGroup
+from telebot import asyncio_filters
+
+# Python libs
+import logging
+import asyncio
 import aioschedule
 import time
 import datetime
+
+#Files - users_db, config
+import config
 import users_config
 from default_exercises import daily_default, full_body_default
-import logging
-import asyncio
-
 
 logging.basicConfig(filename='bot.log', level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
