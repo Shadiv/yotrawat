@@ -22,9 +22,13 @@ from default_exercises import daily_default, full_body_default
 
 logging.basicConfig(filename='bot.log', level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-bot = AsyncTeleBot(token=config.TOKEN)
+bot = AsyncTeleBot(token=config.TOKEN, state_storage=StateMemoryStorage())
 users_tmp = users_config.users
 
+class UserStates(StatesGroup):
+    ask_schedule = State()
+    data_gathered = State()
+    
 @bot.message_handler(commands=['start'])
 async def start(message):
     # Send the initial greeting message
@@ -33,16 +37,16 @@ async def start(message):
     user_id = message.chat.id
 
     # Define a dictionary to store user data
-    user_data = {'user_id': user_id, 'gender': '', 'schedule': []}
-
+    user_data = {'user_id': '', 'gender': '', 'schedule': [], 'personal_program': []}
+    user_data['user_id'] = user_id
     # Send a question asking for gender with buttons
     markup1 = telebot.types.InlineKeyboardMarkup()
-    g1 = telebot.types.InlineKeyboardButton('М', callback_data='male')
-    g2 = telebot.types.InlineKeyboardButton('Ж', callback_data='female')
+    g1 = telebot.types.InlineKeyboardButton('М', callback_data = 'male')
+    g2 = telebot.types.InlineKeyboardButton('Ж', callback_data = 'female')
    
     markup1.add(g1, g2)
     await bot.send_message(message.chat.id, 'Говори быстро, ты кто?!', reply_markup=markup1)
-    await bot.register_next_step_handler_by_chat_id(message, process_gender_step, user_data=user_data)
+    await bot.set_state(message.from_user.id, UserStates.ask_schedule, message.chat.id)
 
 @bot.callback_query_handler(func=lambda call: True)
 async def process_gender_step(call):
@@ -56,25 +60,40 @@ async def process_gender_step(call):
     if user_data['user_id'] not in id_list:
         users_tmp.append(user_data)
     await bot.send_message(call.message.chat.id, 'В какие дни пойдёшь в зал?! Напиши через запятую!')
-    await bot.register_next_step_handler_by_chat_id(call.message.chat.id, process_schedule_step)
 
-
-async def process_schedule_step(message):  
+@bot.message_handler(state=UserStates.ask_schedule)
+async def process_schedule_step(message):
+    # async with bot.retrieve_data(message.from_user.id, message.chat.id) as user_data:
     usr_schedule = message.text
-    # Check if the schedule is provided in a comma-separated format
-    if ',' not in usr_schedule:
-        # Send an error message and ask the question again
-        await bot.send_message(message.chat.id, 'Всего один день?! А ну-ка соберись и введи побольше дней, да правильно!')
-        await bot.register_next_step_handler(message, process_schedule_step)
-        return
-
-    # Update the user data dictionary with the schedule
-    usr_schedule = [i.strip() for i in usr_schedule.split(',')]
+    user_id = message.chat.id
     days = ['понедельник', "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    
+    # Check if the schedule is provided in a comma-separated format
+    if ',' not in usr_schedule and usr_schedule.lower() not in days:
+        await bot.send_message(user_id, 'Шутки шутить вздумал? А ну-ка соберись и введи дни нормально!')
+        await bot.set_state(user_id, UserStates.ask_schedule, message.chat.id)
+        return 
+    
+    # Check if there is only one day in schedule
+    elif ',' not in usr_schedule and usr_schedule.lower() in days:
+        await bot.send_message(message.chat.id, 'Всего один день? Слабовато. Но, надеюсь, со временем ты исправишься! Я прослежу, чтобы не сачковал тут...')
+        def_schedule = 0
+        for d in days: 
+            if usr_schedule.lower() == d:
+                def_schedule = days.index(d)
+        for i in users_tmp:
+            if i['user_id'] == message.chat.id:
+                i['schedule'] = def_schedule
+        await bot.set_state(message.from_user.id, UserStates.data_gathered, message.chat.id)
+        return
+    
+    # Update the user data dictionary with the schedule if user provides bot with multiple days
+    
+    usr_schedule = [i.strip() for i in usr_schedule.split(',')]
     for i in usr_schedule:
         if i.lower() not in days:
             await bot.send_message(message.chat.id, 'Шутки шутить вздумал? А ну-ка соберись и введи дни нормально!')
-            await bot.register_next_step_handler_by_chat_id(message.chat.id, process_schedule_step)
+            await bot.set_state(user_id, UserStates.ask_schedule, message.chat.id)
             return
     def_schedule = []
     for i in days:
@@ -85,14 +104,24 @@ async def process_schedule_step(message):
         if i['user_id'] == message.chat.id: 
             i['schedule'] = def_schedule
 
-    # Send a confirmation message
     markup2 = types.ReplyKeyboardMarkup(resize_keyboard=True)
     b1 = telebot.types.KeyboardButton("Программа")
     markup2.add(b1)
     await bot.send_message(message.chat.id, 'Отлично, запомнил!', reply_markup=markup2)
     update_list_of_users(users_tmp)
-
-@bot.message_handler(content_types=['text'])
+    await bot.set_state(message.from_user.id, UserStates.data_gathered, message.chat.id)
+    
+@bot.message_handler(commands=['change_schedule'])
+async def change_schedule(message):
+    await bot.set_state(message.from_user.id, UserStates.ask_schedule)
+    await bot.send_message(message.chat.id, 'Поменять решил? Ну ладно, перечисляй. Записываю!')
+        
+@bot.message_handler(commands=['help'], state=UserStates.data_gathered)
+async def handle_help(message):
+    bot_commands = [x for l in config.COMMANDS for x in l]
+    await bot.send_message(message.chat.id, f'Чем тебе помочь? Напиши так, чтобы я мог разобрать! \n Список команд: {bot_commands} \n Чтобы напомнить программу напиши: "Программа"! ')
+    
+@bot.message_handler(content_types=['text'], state=UserStates.data_gathered)
 async def handle_text(message):
     if message.text not in config.CHAT_WORD_COMMANDS:
         await bot.send_message(message.chat.id, 'Не могу разобрать что ты там бормочешь, иди лучше сделай растяжку и спину выпрями, а то сидишь как собака сутулая')
@@ -118,7 +147,13 @@ async def handle_text(message):
                             msg = "\n".join(exercises)
                             await bot.send_message(message.chat.id, msg)                     
 
+def upate_users_tmp(users):
+    for usr in users:
+        if 'personal_program' not in usr:
+            usr.update({'personal_program': []})
+
 def update_list_of_users(users_tmp):
+    users_tmp = upate_users_tmp(users=users_tmp)
     with open('users_config.py', 'w') as f:
         f.write(f'users = {users_tmp}')
     users = users_config.users
@@ -174,6 +209,8 @@ async def scheduler():
         await aioschedule.run_pending()
         await asyncio.sleep(1)
 
+bot.add_custom_filter(asyncio_filters.StateFilter(bot))
+bot.add_custom_filter(asyncio_filters.IsDigitFilter())
 
 aioschedule.every().day.at('05:30').do(send_morning_notification, users)
 aioschedule.every().day.at('11:00').do(send_daily, users)
