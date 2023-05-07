@@ -168,7 +168,7 @@ def get_daily(users):
 
 async def send_morning_notification(users):
     daily = get_daily(users=users)
-    gym = [usr['user_id'] for usr in users if datetime.datetime.now().weekday() not in usr['schedule']]
+    gym = [usr['user_id'] for usr in users if datetime.datetime.now().weekday() in usr['schedule']]
     for usr in daily:
         msg = 'Доброе утро! В зал ты сегодня, конечно, не идёшь, но не забудь немного подвигаться. Я прослежу!😉'
         await bot.send_message(chat_id=usr[0], text=msg)
